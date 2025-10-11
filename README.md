@@ -1,7 +1,11 @@
 # DDMon
 
-DDMon is a deadlock monitoring tool for Erlang and Elixir programs based on the
-`gen_server` behaviour.
+**DDMon** proof-of-concept monitoring tool for distributed black-box .deadlock
+detection in Erlang and Elixir systems based on generic servers (`gen_server`).
+We developed the tool as a drop-in replacement for generic servers with minimal
+user intervention required. DDMon is the implementation and companion artifact
+of our work accepted at OOPSLA 2025: "Correct Black-Box Monitors for Distributed
+Deadlock Detection: Formalisation and Implementation"
 
 This document contains prerequisites and instructions for building DDMon.
 
