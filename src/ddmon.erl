@@ -270,6 +270,7 @@ init({Module, Args, Options}) ->
                        deadlock_subscribers = []
                       },
             put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
+            logger:debug("[DDMON] Started monitor for process ~p.", [Pid]),
             {ok, unlocked, State};
         E -> E
     end.
