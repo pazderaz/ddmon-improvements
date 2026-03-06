@@ -1,88 +1,79 @@
 # DDMon
 
-**DDMon** proof-of-concept monitoring tool for distributed black-box .deadlock
+**DDMon**, a monitoring tool for distributed black-box .deadlock
 detection in Erlang and Elixir systems based on generic servers (`gen_server`).
 We developed the tool as a drop-in replacement for generic servers with minimal
 user intervention required. DDMon is the implementation and companion artifact
 of our work accepted at OOPSLA 2025: "Correct Black-Box Monitors for Distributed
 Deadlock Detection: Formalisation and Implementation"
 
-This document contains prerequisites and instructions for building DDMon.
+## Installation
 
-**NOTE:** To evaluate the OOPSLA'25 artifact, you can use a Docker-based setup
-for DDMon. In this case, you can simply follow the instructions in
-[OVERVIEW.md](OVERVIEW.md) and skip the rest of this file.
+As a standalone library, DDMon can be added to your Elixir or Erlang projects as a dependency.
 
-**NOTE:** The following build instructions are tested on GNU/Linux (Ubuntu 24.04
-and 25.04, and Fedora 42) and macOS.
-
-
-## Build prerequisites
-
-- [Erlang/OTP](https://www.erlang.org/), version `26` or higher
-- [Elixir](https://elixir-lang.org/), version `1.14` or higher
-- [Mix](https://hexdocs.pm/mix/Mix.html)
-- [Python 3](https://www.python.org/) with [numpy](https://numpy.org/) (at least
-  2.2), [pandas](https://pandas.pydata.org/) (at least 2.2) and
-  [matplotlib](https://matplotlib.org/) (at least 3.10) --- for plotting
-  benchmark results
-
-
-### Optional: script for a fresh local installation of Erlang and Elixir
-
-If you do not have Erlang or Elixir installed, we provide a script that
-automatically downloads and installs the correct versions. Make sure you have
-the following build dependencies installed on your system:
-
-- `autoconf`
-- `make`
-- `libssl-dev`
-- `openssl`
-- `ncurses`
-- `wxWidgets`
-
-To automatically obtain the right versions of Erlang and Elixir, **source** (not
-run!) the provided script in `bash`:
-
-```bash
-source install-otp.sh
+**For Elixir (`mix.exs`):**
+```elixir
+def deps do
+  [
+    {:ddmon, github: "pazderaz/ddmon-improvements"}
+  ]
+end
 ```
 
-This will use [asdf](https://github.com/asdf-vm/asdf) version manager to install
-Erlang and Elixir. If you do not have `asdf` on your system, it shall be
-installed in the currently visited directory. You may need to run this script in
-every shell session in order to set up `PATH` correctly.
+## Using DDMon to monitor a `gen_server`-based application
 
+DDMon can monitor applications consisting of processes (written in Erlang or
+Elixir) based on the generic server (`gen_server`) behaviour. Intuitively, DDMon
+acts as a drop-in replacement for the `gen_server` module of the OTP standard
+library. At this stage, DDMon supports only the most commonly used features of
+generic servers, i.e. the `call` and `cast` callbacks. Timeouts, deferred
+responses (`no_reply`) and pooled calls through `reqids` are not covered by the
+prototype yet.
 
-## Building DDMon
+To instrument an Erlang or Elixir program with DDMon monitors, you'll need to
+follow these instructions, which depend on the language used to write each
+`gen_server` instance:
 
-To create a local build of DDMon, run:
+- In the case of `gen_server`s implemented in Elixir, it suffices to add the
+  following line at the top of the file, immediately after `use GenServer`:
 
-```bash
-make
+  ```elixir
+  alias :ddmon, as: GenServer
+  ```
+
+- In the case of `gen_server`s written in Erlang, you will need to
+  find-and-replace all references to the `gen_server` module with `ddmon`. (This
+  is necessary because Erlang lacks the `alias` directive provided by Elixir.)
+
+## Configuration
+
+DDMon provides compile-time configuration flags to enable debugging and reporting features. Under the hood, these flags inject specific Erlang compiler options (:DDM_DEBUG and :DDM_REPORT) when the library is compiled.
+
+You can configure these flags in your host project's configuration file (e.g., `config/config.exs`):
+
+**`config.exs`**
+```elixir
+import Config
+
+config :ddmon,
+  # Enables debugging output describing the monitor state change and deadlock reporting.
+  # Accepts: "1" (enabled) or "0" (disabled, default).
+  ddm_debug: "1",
+
+  # Enables the deadlock reporting functionality.
+  ddm_report: true
 ```
 
-If you do not have `make`, you can run the following instead:
+## Repository layout
 
-```bash
-mix deps.get
-mix escript.build
-```
+This repository is structured to separate the core, distributable library from the academic and evaluation models used to test it. 
+We also provide an example scenario showcasing the functionality of DDMon.
 
+* `src/` – The core DDMon library source code.
+* `example-system/` –  An example `gen_server`-based Elixir application which shows DDMon in a slightly more realistic local setup.
+* `oopsla` - The OOPSLA'25 artifact. For more details see the `oopsla/README.md`.
 
-## Evaluating the OOPSLA'25 artifact
+## Prerequisites
 
-After building DDMon, you can follow the instructions referenced from
-[OVERVIEW.md](OVERVIEW.md) --- except that, to use your local build of DDMon,
-you should **remove the Docker-related part of each command**. For example, if
-the instructions ask you to run:
-
-```bash
-docker run --rm -v "$(pwd)/output:/app/output" ddmon ./bench.sh small
-```
-
-then you should run instead:
-
-```bash
-./bench.sh small
-```
+- Erlang/OTP 26
+- Elixir 1.14

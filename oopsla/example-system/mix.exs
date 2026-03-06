@@ -22,8 +22,6 @@ defmodule MicrochipFactory.MixProject do
   end
 
   defp deps do
-    [
-      {:ddmon, path: "../"}
-    ]
+    []
   end
 end

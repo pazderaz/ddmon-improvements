@@ -306,7 +306,6 @@ unlocked({call, {Worker, PTag}}, {_Msg, Server}, _State = #state{worker = Worker
       end
       || {_, #{from := W, monitored := true}} <- gen_statem:reqids_to_list(Waitees)
     ],
-    ?DDM_WARN_DEADLOCK("~p: Attempted a call to itself!", [Worker]),
     {next_state, deadlocked,
      #deadstate{ worker = Worker
                , deadlock = [self(), self()]
@@ -320,7 +319,6 @@ unlocked({call, {Worker, PTag}}, {Msg, Server}, State = #state{worker = Worker})
     %% Forward the request as `call` asynchronously
     ExtTag = gen_statem:send_request(Server, {?MONITORED_CALL, Msg}),
 
-    ?DDM_DBG_STATE("(unlocked -> locked) ~p: Calling process  ~p", [Worker, PTag]),
     {next_state, locked,
      State#state{
        req_tag = PTag,
@@ -469,8 +467,7 @@ locked(info, Msg, State = #state{ worker = Worker
               end
               || {_, #{from := W, monitored := true}} <- gen_statem:reqids_to_list(Waitees)
             ],
-            
-            ?DDM_WARN_DEADLOCK("~p: Awaited reply from a deadlocked process!", [Worker]),
+
             {next_state, deadlocked, #deadstate{foreign = true
                                                , worker = Worker
                                                , deadlock = [self() | DL]
@@ -479,7 +476,6 @@ locked(info, Msg, State = #state{ worker = Worker
                                                }};
 
         {reply, Reply} ->
-            ?DDM_DBG_STATE("(locked -> unlocked) ~p: Replied.", [Worker]),
             %% Pass the reply to the process. We are unlocked now.
             {next_state, unlocked,
              State,
@@ -501,7 +497,6 @@ locked(cast, {?PROBE, PTag, Chain}, #state{ worker = Worker
       end
       || {_, #{from := W, monitored := true}} <- gen_statem:reqids_to_list(Waitees)
     ],
-    ?DDM_WARN_DEADLOCK("~p: Received own probe! Formed a locked monitor chain: ~p", [Worker, DL]),
     {next_state, deadlocked, #deadstate{ worker = Worker
                                        , deadlock = [self() | Chain]
                                        , req_id = ReqId

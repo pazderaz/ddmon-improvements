@@ -1,3 +1,26 @@
+%% Debug logging macros. Enable with a Config entry:
+%% config :ddmon,
+%%  ddm_debug: "1"
+%%
+%% Usage: ?DDM_DBG_PROBE("format string ~p", [Args]).
+
+-ifdef(DDM_DEBUG).
+-define(DDM_DBG_PROBE(Fmt, Args),
+    logger:debug("[PROBE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+-define(DDM_DBG_STATE(Fmt, Args),
+    logger:debug("[STATE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+-else.
+-define(DDM_DBG_PROBE(_Fmt, _Args), ok).
+-define(DDM_DBG_STATE(_Fmt, _Args), ok).
+-endif.
+
+-if(defined(DDM_DEBUG) orelse defined(DDM_REPORT)).
+-define(DDM_WARN_DEADLOCK(Fmt, Args),
+    logger:warning("[DEADLOCK] (!) " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+-else.
+-define(DDM_WARN_DEADLOCK(_Fmt, _Args), ok).
+-endif.
+
 -define(MON_PID, '$gen_monitored_pid').
 -define(CALLBACK_MOD, '$gen_monitored_mod').
 -define(PROBE, '$gen_monitored_probe').
