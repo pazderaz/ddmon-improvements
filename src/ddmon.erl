@@ -269,6 +269,9 @@ init({Module, Args, Options}) ->
                        req_id = undefined,
                        deadlock_subscribers = []
                       },
+
+            mon_reg:register_monitor(self()),
+            
             put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
             logger:debug("[DDMON] Started monitor for process ~p.", [Pid]),
             {ok, unlocked, State};
@@ -318,8 +321,15 @@ unlocked({call, {Worker, PTag}}, {_Msg, Server}, _State = #state{worker = Worker
 
 %% Our service wants a call
 unlocked({call, {Worker, PTag}}, {Msg, Server}, State = #state{worker = Worker}) ->
+    FinalMsg = case mon_reg:is_monitored(Server) of
+        true -> %% Target is monitored. Wrap it so the monitors can track it.
+            {?MONITORED_CALL, Msg};
+        false -> %% Target is a standard gen_server. Leave it unwrapped so it doesn't crash.
+            Msg
+    end,
+
     %% Forward the request as `call` asynchronously
-    ExtTag = gen_statem:send_request(Server, {?MONITORED_CALL, Msg}),
+    ExtTag = gen_statem:send_request(Server, FinalMsg),
 
     ?DDM_DBG_STATE("(unlocked -> locked) ~p: Calling process  ~p", [Worker, PTag]),
     {next_state, locked,

@@ -37,7 +37,7 @@ handle_info(Info, State) ->
     Module = get(?CALLBACK_MOD),
     case erlang:function_exported(Module, handle_info, 2) of
         true -> Module:handle_info(Info, State);
-        false -> ok
+        false -> {noreply, State}
     end.
 
 
@@ -52,6 +52,6 @@ terminate(Reason, State) ->
 code_change(OldVsn, State, Extra) ->
     Module = get(?CALLBACK_MOD),
     case erlang:function_exported(Module, code_change, 3) of
-        true -> Module:code_chane(OldVsn, State, Extra);
-        false -> ok
+        true -> Module:code_change(OldVsn, State, Extra);
+        false -> {ok, State}
     end.

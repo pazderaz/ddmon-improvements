@@ -6,17 +6,20 @@
 
 -ifdef(DDM_DEBUG).
 -define(DDM_DBG_PROBE(Fmt, Args),
-    logger:debug("[PROBE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+    logger:debug("[PROBE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
 -define(DDM_DBG_STATE(Fmt, Args),
-    logger:debug("[STATE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+    logger:debug("[STATE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
+-define(DDM_DBG_MON_REG(Fmt, Args),
+    logger:warning("[MON_REG] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
 -else.
 -define(DDM_DBG_PROBE(_Fmt, _Args), ok).
 -define(DDM_DBG_STATE(_Fmt, _Args), ok).
+-define(DDM_DBG_MON_REG(_Fmt, _Args), ok).
 -endif.
 
 -if(defined(DDM_DEBUG) orelse defined(DDM_REPORT)).
 -define(DDM_WARN_DEADLOCK(Fmt, Args),
-    logger:warning("[DEADLOCK] (!) " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddtrace})).
+    logger:warning("[DEADLOCK] (!) " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
 -else.
 -define(DDM_WARN_DEADLOCK(_Fmt, _Args), ok).
 -endif.
