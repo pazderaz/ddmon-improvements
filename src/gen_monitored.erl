@@ -20,6 +20,23 @@ start_link(Module, Args0, Options) ->
 init([{monitor, Monitor}, {module, Module}|Args]) ->
     put(?MON_PID, Monitor),
     put(?CALLBACK_MOD, Module),
+
+    %% --- ELIXIR COMPATIBILITY ---
+    %% Elixir testing tools (like Mox and Ecto.Adapters.SQL.Sandbox) rely on a hidden
+    %% process dictionary key called '$callers' to trace ownership back to the test process.
+    %% Erlang wrappers drop this key. By copying the built-in '$ancestors' list 
+    %% (which contains the test process PID) to '$callers', we restore the link for Elixir.
+    case get('$callers') of
+        undefined ->
+            case get('$ancestors') of
+                undefined -> ok;
+                Ancestors -> put('$callers', Ancestors)
+            end;
+        _ -> 
+            ok
+    end,
+    %% -----------------------------
+
     Module:init(Args).
 
 

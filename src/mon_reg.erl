@@ -4,7 +4,7 @@
 -include("ddmon.hrl").
 
 %% API
--export([start_link/0, register_monitor/1, is_monitored/1, child_spec/1]).
+-export([start/0, start_link/0, register_monitor/1, is_monitored/1, child_spec/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
@@ -14,6 +14,9 @@
 %%%======================
 %%% API
 %%%======================
+
+start() ->
+    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
