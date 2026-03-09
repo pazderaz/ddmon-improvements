@@ -295,7 +295,7 @@ unlocked(enter, _, _) ->
 unlocked(cast, {?DL_SUBSCRIBE, Who}, State = #state{deadlock_subscribers = Subs}) ->
     {keep_state, State#state{deadlock_subscribers = [Who|Subs]}};
 
-unlocked({call, From}, '$get_child', #state{worker = Worker}) ->
+unlocked({call, From}, ?GET_CHILD, #state{worker = Worker}) ->
     {keep_state_and_data, {reply, From, Worker}};
 
 
@@ -325,13 +325,14 @@ unlocked({call, {Worker, PTag}}, {Msg, Server}, State = #state{worker = Worker})
         true -> %% Target is monitored. Wrap it so the monitors can track it.
             {?MONITORED_CALL, Msg};
         false -> %% Target is a standard gen_server. Leave it unwrapped so it doesn't crash.
+            ?DDM_DBG_ALIEN("~p: Calling unmonitored process '~p'", [self(), Server]),
             Msg
     end,
 
     %% Forward the request as `call` asynchronously
     ExtTag = gen_statem:send_request(Server, FinalMsg),
 
-    ?DDM_DBG_STATE("(unlocked -> locked) ~p: Calling process  ~p", [Worker, PTag]),
+    ?DDM_DBG_STATE("(unlocked -> locked) ~p: Calling process '~p'", [Worker, Server]),
     {next_state, locked,
      State#state{
        req_tag = PTag,
@@ -344,7 +345,9 @@ unlocked({call, From}, Msg, State = #state{waitees = Waitees0}) ->
     {Monitored, RawMsg} =
         case Msg of
             {?MONITORED_CALL, RMsg} -> {true, RMsg};
-            _ -> {false, Msg}
+            _ ->
+                ?DDM_DBG_ALIEN("~p: Received unmonitored call from '~p'", [self(), From]),
+                {false, Msg}
         end,
 
     %% Forward to the process
@@ -414,7 +417,9 @@ locked({call, From}, Msg, State = #state{req_tag = PTag, waitees = Waitees0}) ->
     {Monitored, RawMsg} =
         case Msg of
             {?MONITORED_CALL, RMsg} -> {true, RMsg};
-            _ -> {false, Msg}
+            _ ->
+                ?DDM_DBG_ALIEN("~p: Received unmonitored call from '~p'", [self(), From]),
+                {false, Msg}
         end,
 
     %% Forward to the process
@@ -558,7 +563,7 @@ deadlocked(cast, {?DL_SUBSCRIBE, Who}, _State = #deadstate{deadlock = DL}) ->
     Who ! {?DEADLOCK, DL},
     keep_state_and_data;
 
-deadlocked({call, From}, '$get_child', #deadstate{worker = Worker}) ->
+deadlocked({call, From}, ?GET_CHILD, #deadstate{worker = Worker}) ->
     {keep_state_and_data, {reply, From, Worker}};
 
 %% Incoming external call. We just tell them about the deadlock.
@@ -566,7 +571,9 @@ deadlocked({call, From}, Msg, State = #deadstate{deadlock = DL}) ->
     {Monitored, RawMsg} =
         case Msg of
             {?MONITORED_CALL, RMsg} -> {true, RMsg};
-            _ -> {false, Msg}
+            _ ->
+                ?DDM_DBG_ALIEN("~p: Received unmonitored call from '~p'", [self(), From]),
+                {false, Msg}
         end,
 
     %% Forward to the process just in case

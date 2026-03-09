@@ -87,7 +87,7 @@ config :ddmon,
 This repository is structured to separate the core, distributable library from the academic and evaluation models used to test it. 
 We also provide an example scenario showcasing the functionality of DDMon.
 
-* `src/` – The core DDMon library source code.
+* `src/` & `lib/` – The core DDMon library source code.
 * `example-system/` –  An example `gen_server`-based Elixir application which shows DDMon in a slightly more realistic local setup.
 * `oopsla` - The OOPSLA'25 artifact. For more details see the `oopsla/README.md`.
 
