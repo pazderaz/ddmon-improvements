@@ -45,6 +45,24 @@ follow these instructions, which depend on the language used to write each
   find-and-replace all references to the `gen_server` module with `ddmon`. (This
   is necessary because Erlang lacks the `alias` directive provided by Elixir.)
 
+### Application Architecture & Monitoring Registry
+
+The `ddmon` dependency operates as a supervised **OTP Application** rather than just a passive code library. 
+
+When your app starts, `ddmon` spins up its own supervision tree alongside your main application. 
+
+- **The `mon_reg` Registry:** At the root of this tree, the `ddmon` application starts and supervises a centralized registry process called `mon_reg`.
+- **Monitor Tracking:** Every time a worker process is wrapped by a `ddmon` proxy, that proxy registers itself with `mon_reg`. The registry acts as the source of truth, maintaining active references to all running `ddmon` monitors across the node to coordinate distributed deadlock detection.
+
+## ⚠️ Important Limitation: `sys` Module Transparency
+DDMon wraps your GenServers in a proxy process to detect deadlocks. Because of how the Erlang VM handles system messages, the proxy intercepts all calls to the `:sys` module.
+
+If you call `:sys.get_state/1`, `:sys.get_status/1`, or `:sys.replace_state/2` on a monitored process, you will interact with the monitor's state, not the underlying worker process.
+
+### How to handle this:
+- In Production Logic: Do not use `:sys` for synchronization. Implement a custom synchronous `GenServer.call(pid, :sync)` in your worker, which DDMon will correctly forward.
+- In Tests: If you need to flush a worker's mailbox or check its state, extract the raw worker PID first using `GenServer.call(pid, :"$get_child")` and pass that PID to the `:sys` module.
+
 ## Configuration
 
 DDMon provides compile-time configuration flags to enable debugging and reporting features. Under the hood, these flags inject specific Erlang compiler options (:DDM_DEBUG and :DDM_REPORT) when the library is compiled.
@@ -56,11 +74,11 @@ You can configure these flags in your host project's configuration file (e.g., `
 import Config
 
 config :ddmon,
-  # Enables debugging output describing the monitor state change and deadlock reporting.
+  # Enables full debugging output including monitor state change and deadlock reporting.
   # Accepts: "1" (enabled) or "0" (disabled, default).
   ddm_debug: "1",
 
-  # Enables the deadlock reporting functionality.
+  # Enables logging of deadlocks as warnings.
   ddm_report: true
 ```
 

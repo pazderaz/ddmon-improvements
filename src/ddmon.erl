@@ -140,7 +140,7 @@ start_link(ServerName, Module, Args, Options) ->
     %% We allow running unmonitored systems via options
     case proplists:get_value(unmonitored, proplists:get_value(ddmon_opts, Options, []), false) of
         true ->
-            gen_server:start(Module, Args, Options);
+            gen_server:start_link(Module, Args, Options);
         false ->
             gen_statem:start_link(ServerName, ?MODULE, {Module, Args, Options}, Options)
     end.
@@ -406,7 +406,7 @@ locked(enter, _, _) ->
 locked(cast, {?DL_SUBSCRIBE, Who}, State = #state{deadlock_subscribers = Subs}) ->
     {keep_state, State#state{deadlock_subscribers = [Who|Subs]}};
 
-locked({call, From}, '$get_child', #state{worker = Worker}) ->
+locked({call, From}, ?GET_CHILD, #state{worker = Worker}) ->
     {keep_state_and_data, {reply, From, Worker}};
 
 %% Incoming external call

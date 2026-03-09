@@ -31,5 +31,6 @@
 -define(MONITORED_CALL, '$ddmon_monitored_call').
 -define(SCHEDULED_PROBE, '$ddmon_probe_scheduled').
 -define(DL_SUBSCRIBE, '$ddmon_dl_subscribe').
+-define(GET_CHILD, '$get_child').
 
 -define(LOG_INDENT_SIZE, '$log_indent_size').
