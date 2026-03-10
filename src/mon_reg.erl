@@ -1,61 +1,74 @@
+%%%-------------------------------------------------------------------
+%%% @doc Monitor registry using pg process groups.
+%%%
+%%% Maps `gen_server` identities (PIDs or global names) to their monitor
+%%% processes. Uses a custom pg scope for distributed lookups.
+%%% -------------------------------------------------------------------
+
 -module(mon_reg).
--behaviour(gen_server).
 
--include("ddmon.hrl").
+-export([is_registered/1, set_mon/2, unset_mon/1]).
 
-%% API
--export([start/0, start_link/0, register_monitor/1, is_monitored/1, child_spec/1]).
+-define(PG_SCOPE, mon_reg_scope).
 
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
+%%%===================================================================
+%%% API functions
+%%%===================================================================
 
--define(TABLE, ?MODULE).
-
-%%%======================
-%%% API
-%%%======================
-
-start() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
-
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
-%% Called by ddmon inside init/1
-register_monitor(Pid) ->
-    try
-        gen_server:call(?MODULE, {register, Pid})
-    catch _:_ ->
-        ?DDM_DBG_MON_REG("~p: failed to register itself to the monitoring registry. Monitor registry is probably offline!", [Pid]),
-        false
-    end.
-
-is_monitored(Target) ->
-    case resolve_target(Target) of
+%% @doc Check if a process identified by the key is a registered (ddmon) proxy monitor.
+-spec is_registered(term()) -> pid() | boolean().
+is_registered(Key) ->
+    case resolve_target(Key) of
         Pid when is_pid(Pid) ->
-            try 
-                ets:member(?TABLE, Pid)
-            catch _:_ -> 
-                ?DDM_DBG_MON_REG("~p failed to check if '~p' is monitored. Monitor registry is probably offline!", [self(), Target]),
-                false
+            case pg:get_members(?PG_SCOPE, Pid) of
+                [_ | _] -> true;
+                [] -> false
             end;
-        _ ->
-            false
+        undefined -> false
     end.
 
-child_spec(_Opts) ->
-    #{ id => ?MODULE,
-       start => {?MODULE, start_link, []},
-       restart => permanent,
-       shutdown => 5000,
-       type => worker,
-       modules => [?MODULE] }.
+%% @doc Register a (ddmon) proxy monitor for a key.
+-spec set_mon(term(), pid()) -> ok | {error, already_registered}.
+set_mon(Key, MonPid) ->
+    Callback =
+        fun() ->
+                case pg:get_members(?PG_SCOPE, Key) of
+                    [] ->
+                        pg:join(?PG_SCOPE, Key, MonPid),
+                        ok;
+                    [_ | _] ->
+                        {error, already_registered}
+                end
+        end,
+    %% It seems that pg reqiures this to be run on the same node as MonPid
+    exec_on_pid_node(MonPid, Callback).
 
-%%%======================
-%%% Helpers
-%%%======================
+%% @doc Unregister a (ddmon) proxy monitor for a key.
+-spec unset_mon(term()) -> ok.
+unset_mon(Key) ->
+    case pg:get_members(?PG_SCOPE, Key) of
+        [MonPid | _] -> pg:leave(?PG_SCOPE, Key, MonPid), ok;
+        [] -> ok
+    end.
 
-%% Resolves standard OTP destination types to a local PID
+%%%===================================================================
+%%% Helper functions
+%%%===================================================================
+
+%% @doc Executes a function on the node of the specified PID (either locally or
+%% via RPC).
+-spec exec_on_pid_node(pid(), fun(() -> T)) -> T.
+exec_on_pid_node(Pid, Fun) when is_pid(Pid), is_function(Fun, 0) ->
+    Node = node(Pid),
+    case Node of
+        N when N =:= node() ->
+            Fun();
+        N ->
+            rpc:call(N, erlang, apply, [Fun, []])
+    end.
+
+%% @doc Resolves standard OTP destination types to a local PID.
+-spec resolve_target(term()) -> pid() | undefined.
 resolve_target(Pid) when is_pid(Pid) -> 
     Pid;
 resolve_target(Name) when is_atom(Name) -> 
@@ -68,36 +81,3 @@ resolve_target({Name, Node}) when Node =:= node() ->
     whereis(Name);
 resolve_target(_) -> 
     undefined. %% Remote nodes or invalid targets
-
-%%%======================
-%%% Callbacks
-%%%======================
-
-init([]) ->
-    %% read_concurrency: optimizes simultaneous reads
-    ets:new(?TABLE, [named_table, protected, set, {read_concurrency, true}]),
-    {ok, #{}}. %% State is a Map of MonitorRef => {Pid}
-
-handle_call({register, Pid}, _From, State) ->
-    %% Monitor the process so we know if it dies
-    MRef = erlang:monitor(process, Pid),
-    
-    %% Insert the PID into ETS
-    ets:insert(?TABLE, {Pid}),
-
-    {reply, ok, State#{MRef => {Pid}}}.
-
-handle_cast(_Msg, State) ->
-    {noreply, State}.
-
-handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
-    case maps:take(MRef, State) of
-        {{DeadPid}, NewState} ->
-            ets:delete(?TABLE, DeadPid),
-            {noreply, NewState};
-        error ->
-            {noreply, State}
-    end;
-
-handle_info(_Info, State) ->
-    {noreply, State}.

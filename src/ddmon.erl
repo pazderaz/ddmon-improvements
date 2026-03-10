@@ -270,10 +270,10 @@ init({Module, Args, Options}) ->
                        deadlock_subscribers = []
                       },
 
-            mon_reg:register_monitor(self()),
+            mon_reg:set_mon(self(), self()),
             
             put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
-            logger:debug("[DDMON] Started monitor for process ~p.", [Pid]),
+            ?DDM_DBG_DDMON("Started monitor ~p for process ~p.", [self(), Pid]),
             {ok, unlocked, State};
         E -> E
     end.
@@ -321,7 +321,7 @@ unlocked({call, {Worker, PTag}}, {_Msg, Server}, _State = #state{worker = Worker
 
 %% Our service wants a call
 unlocked({call, {Worker, PTag}}, {Msg, Server}, State = #state{worker = Worker}) ->
-    FinalMsg = case mon_reg:is_monitored(Server) of
+    FinalMsg = case mon_reg:is_registered(Server) of
         true -> %% Target is monitored. Wrap it so the monitors can track it.
             {?MONITORED_CALL, Msg};
         false -> %% Target is a standard gen_server. Leave it unwrapped so it doesn't crash.
@@ -517,7 +517,7 @@ locked(cast, {?PROBE, PTag, Chain}, #state{ worker = Worker
       end
       || {_, #{from := W, monitored := true}} <- gen_statem:reqids_to_list(Waitees)
     ],
-    ?DDM_WARN_DEADLOCK("~p: Received own probe! Formed a locked monitor chain: ~p", [Worker, DL]),
+    ?DDM_WARN_DEADLOCK("~p: Received own probe! Formed a locked chain: ~p", [Worker, DL]),
     {next_state, deadlocked, #deadstate{ worker = Worker
                                        , deadlock = [self() | Chain]
                                        , req_id = ReqId

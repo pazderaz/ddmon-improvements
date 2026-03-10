@@ -11,13 +11,13 @@
     logger:debug("[STATE] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
 -define(DDM_DBG_ALIEN(Fmt, Args),
     logger:debug("[ALIEN] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
--define(DDM_DBG_MON_REG(Fmt, Args),
-    logger:warning("[MON_REG] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
+-define(DDM_DBG_DDMON(Fmt, Args),
+    logger:debug("[DDMON] " ++ Fmt, Args, #{module => ?MODULE, subsystem => ddmon})).
 -else.
 -define(DDM_DBG_PROBE(_Fmt, _Args), ok).
 -define(DDM_DBG_STATE(_Fmt, _Args), ok).
 -define(DDM_DBG_ALIEN(_Fmt, _Args), ok).
--define(DDM_DBG_MON_REG(_Fmt, _Args), ok).
+-define(DDM_DBG_DDMON(_Fmt, _Args), ok).
 -endif.
 
 -if(defined(DDM_DEBUG) orelse defined(DDM_REPORT)).

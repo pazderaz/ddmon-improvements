@@ -3,13 +3,14 @@ defmodule DDMon.Application do
 
   use Application
 
-  @impl true
+  @impl Application
   def start(_type, _args) do
-
     children = [
+      # This explicitly starts the pg scope and links it to this supervisor.
+      # If the pg scope crashes, the supervisor will automatically restart it.
       %{
-        id: :mon_reg,
-        start: {:mon_reg, :start_link, []}
+        id: :mon_reg_scope,
+        start: {:pg, :start_link, [:mon_reg_scope]}
       }
     ]
 

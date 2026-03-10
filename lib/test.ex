@@ -1,6 +1,6 @@
 defmodule DDMon.Test do
   @moduledoc """
-  Safe wrappers for testing processes monitored by Ddmon.
+  Safety wrappers for testing processes monitored by DDMon.
   These functions automatically bypass the proxy to ensure you are
   syncing with the actual worker process.
   """
