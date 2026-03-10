@@ -7,13 +7,21 @@
 
 -module(mon_reg).
 
--export([is_registered/1, set_mon/2, unset_mon/1]).
+-export([ensure_started/0, is_registered/1, set_mon/2, unset_mon/1]).
 
 -define(PG_SCOPE, mon_reg_scope).
 
 %%%===================================================================
 %%% API functions
 %%%===================================================================
+
+%% @doc Ensure the pg scope is running. Idempotent — safe to call multiple times.
+-spec ensure_started() -> ok.
+ensure_started() ->
+    case pg:start(?PG_SCOPE) of
+        {ok, _} -> ok;
+        {error, {already_started, _}} -> ok
+    end.
 
 %% @doc Check if a process identified by the key is a registered (ddmon) proxy monitor.
 -spec is_registered(term()) -> pid() | boolean().

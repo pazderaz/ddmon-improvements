@@ -270,6 +270,7 @@ init({Module, Args, Options}) ->
                        deadlock_subscribers = []
                       },
 
+            mon_reg:ensure_started(),
             mon_reg:set_mon(self(), self()),
             
             put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
