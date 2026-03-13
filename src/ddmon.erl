@@ -258,6 +258,8 @@ subscribe_deadlocks(Server) ->
 %%%======================
 
 init({Module, Args, Options}) ->
+    process_flag(trap_exit, true),
+
     DlsOpts = proplists:get_value(ddmon_opts, Options, []),
     ProcOpts = proplists:delete(ddmon_opts, proplists:delete(name, Options)),
 
@@ -382,13 +384,13 @@ unlocked(cast, Msg, #state{worker = Worker}) ->
 unlocked(cast, {?SCHEDULED_PROBE, _To, _Probe}, _State) ->
     keep_state_and_data;
 
-%% Process died
-unlocked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
-    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
+%% Worker process exited 
+unlocked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone (???) died
-unlocked(info, {'DOWN', _, process, _Worker, _Reason}, _) ->
+%% Someone (???) exited 
+unlocked(info, {'EXIT', _Pid, _Reason}, _) ->
     keep_state_and_data;
 
 %% Process sent a reply (or not)
@@ -462,13 +464,13 @@ locked({call, From}, Msg, State = #state{req_tag = PTag, waitees = Waitees0}) ->
      State#state{waitees = Waitees1}
     };
 
-%% Process died
-locked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
-    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
+%% Worker process exited 
+locked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
 %% Someone (???) died
-locked(info, {'DOWN', _, process, _Worker, _Reason}, _) ->
+locked(info, {'EXIT', _Pid, _Reason}, _) ->
     keep_state_and_data;
 
 %% Incoming reply
@@ -620,13 +622,13 @@ deadlocked(cast, Msg, #deadstate{worker = Worker}) ->
     gen_server:cast(Worker, Msg),
     keep_state_and_data;
 
-%% Process died
-deadlocked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
-    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
+%% Worker process exited 
+deadlocked(info, {'EXIT', Worker, Reason}, #deadstate{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone (???) died
-deadlocked(info, {'DOWN', _, process, _Worker, _Reason}, _) ->
+%% Someone (???) exited 
+deadlocked(info, {'EXIT', _Pid, _Reason}, _) ->
     keep_state_and_data;
 
 %% Incoming random message

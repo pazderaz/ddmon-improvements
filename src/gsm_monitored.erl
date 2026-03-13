@@ -11,7 +11,6 @@
 
 %% Start the server
 start_link(Module, Args0, Options) ->
-    %% Same monitor injection as gen_monitored
     Args1 = [{monitor, self()}, {module, Module} | Args0],
     gen_statem:start_link(?MODULE, Args1, Options).
 
@@ -49,12 +48,15 @@ callback_mode() ->
 %% Generic event router
 handle_event(EventType, EventContent, State, Data) ->
     Module = get(?CALLBACK_MOD),
+    Modes = Module:callback_mode(),
     
-    CallbackMode = Module:callback_mode(),
-    case CallbackMode of
-        handle_event_function ->
-            Module:handle_event(EventType, EventContent, State, Data);
-        state_enter ->
+    %% Standardize to a list for easier checking
+    ModeList = if is_list(Modes) -> Modes; true -> [Modes] end,
+
+    case lists:member(handle_event_function, ModeList) of
+        true -> Module:handle_event(EventType, EventContent, State, Data);
+        false -> 
+            %% Assume state_functions if not handle_event_function
             Module:State(EventType, EventContent, Data)
     end.
 
