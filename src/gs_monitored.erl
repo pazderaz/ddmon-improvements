@@ -1,4 +1,4 @@
--module(gen_monitored).
+-module(gs_monitored).
 -behaviour(gen_server).
 
 -include("ddmon.hrl").
@@ -8,7 +8,6 @@
 
 %% gen_server Callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
-
 
 %% Start the server
 start_link(Module, Args0, Options) ->

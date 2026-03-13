@@ -23,7 +23,7 @@ defmodule MicrochipFactory.MixProject do
 
   defp deps do
     [
-      {:ddmon, path: "../"}
+      {:ddmon, path: "../../"}
     ]
   end
 end

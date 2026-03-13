@@ -260,7 +260,15 @@ subscribe_deadlocks(Server) ->
 init({Module, Args, Options}) ->
     DlsOpts = proplists:get_value(ddmon_opts, Options, []),
     ProcOpts = proplists:delete(ddmon_opts, proplists:delete(name, Options)),
-    case gen_monitored:start_link(Module, Args, ProcOpts) of
+
+    %% Check options to see if we should wrap a statem or a server
+    WorkerType = proplists:get_value(worker_type, DlsOpts, gen_server),
+    StartRes = case WorkerType of
+        gen_statem -> gsm_monitored:start_link(Module, Args, ProcOpts);
+        gen_server -> gs_monitored:start_link(Module, Args, ProcOpts)
+    end,
+
+    case StartRes of
         {ok, Pid} ->
             State =
                 #state{worker = Pid,

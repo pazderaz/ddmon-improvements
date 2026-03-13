@@ -1,6 +1,6 @@
 defmodule MicrochipFactory.Producer do
   use GenServer
-  # alias :ddmon, as: GenServer
+  alias :ddmon, as: GenServer
 
   def start_link(name, microchip_metadata, component_producers) do
     GenServer.start_link(__MODULE__, {microchip_metadata, component_producers, name}, name: name)

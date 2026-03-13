@@ -90,6 +90,17 @@ defmodule MicrochipFactory do
     do_calls(calls, monitored, 4000)
   end
 
+  def start_test do
+    # 2. Start the Receiver (Unmonitored)
+    {:ok, _receiver_pid} = Receiver.start_link([])
+
+    # 3. Start the Sender (Monitored)
+    {:ok, _sender_pid} = Sender.start_link([])
+
+    # 5. Trigger the cross-process call
+    Sender.trigger_call()
+    :timer.sleep(5000)
+  end
 
   ### ==========================================================================
   ### Printing and initiating
