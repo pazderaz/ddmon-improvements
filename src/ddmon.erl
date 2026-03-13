@@ -384,6 +384,7 @@ unlocked(cast, {?SCHEDULED_PROBE, _To, _Probe}, _State) ->
 
 %% Process died
 unlocked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
 %% Someone (???) died
@@ -463,6 +464,7 @@ locked({call, From}, Msg, State = #state{req_tag = PTag, waitees = Waitees0}) ->
 
 %% Process died
 locked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
 %% Someone (???) died
@@ -620,6 +622,7 @@ deadlocked(cast, Msg, #deadstate{worker = Worker}) ->
 
 %% Process died
 deadlocked(info, {'DOWN', _, process, Worker, Reason}, #state{worker=Worker}) ->
+    ?DDM_DBG_DDMON("~p: Monitored process ~p died with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
 %% Someone (???) died
