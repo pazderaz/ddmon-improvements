@@ -254,6 +254,25 @@ subscribe_deadlocks(Server) ->
     gen_statem:cast(Server, {?DL_SUBSCRIBE, self()}).
 
 %%%======================
+%%% Internal Helpers
+%%%======================
+
+forward_external_exit(ExitMsg = {'EXIT', _From, Reason}, Worker) ->
+    case erlang:process_info(Worker, trap_exit) of
+        {trap_exit, true} ->
+            %% Worker traps exits. Forward as a raw message.
+            Worker ! ExitMsg;
+        {trap_exit, false} ->
+            %% Worker doesn't trap exits. Emulate standard BEAM behavior.
+            case Reason of
+                normal -> ok;
+                _ -> exit(Worker, Reason)
+            end;
+        undefined ->
+            ok
+    end.
+
+%%%======================
 %%% gen_statem Callbacks
 %%%======================
 
@@ -389,10 +408,9 @@ unlocked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone wants to terminate us, let the worker handle it.
-%% (We will terminate if we receive the EXIT from the worker)
+%% Someone wants to terminate us.
 unlocked(info, ExitMsg = {'EXIT', _From, _Reason}, #state{worker=Worker}) ->
-    Worker ! ExitMsg,
+    forward_external_exit(ExitMsg, Worker),
     keep_state_and_data;
 
 %% Process sent a reply (or not)
@@ -471,10 +489,9 @@ locked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone wants to terminate us, let the worker handle it.
-%% (We will terminate if we receive the EXIT from the worker)
+%% Someone wants to terminate us.
 locked(info, ExitMsg = {'EXIT', _From, _Reason}, #state{worker=Worker}) ->
-    Worker ! ExitMsg,
+    forward_external_exit(ExitMsg, Worker),
     keep_state_and_data;
 
 %% Incoming reply
@@ -631,10 +648,9 @@ deadlocked(info, {'EXIT', Worker, Reason}, #deadstate{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone wants to terminate us, let the worker handle it.
-%% (We will terminate if we receive the EXIT from the worker)
+%% Someone wants to terminate us.
 deadlocked(info, ExitMsg = {'EXIT', _From, _Reason}, #deadstate{worker=Worker}) ->
-    Worker ! ExitMsg,
+    forward_external_exit(ExitMsg, Worker),
     keep_state_and_data;
 
 %% Incoming random message
