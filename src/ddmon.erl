@@ -391,8 +391,8 @@ unlocked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
 
 %% Someone wants to terminate us, let the worker handle it.
 %% (We will terminate if we receive the EXIT from the worker)
-unlocked(info, {'EXIT', _From, Reason}, #state{worker=Worker}) ->
-    exit(Worker, Reason),
+unlocked(info, ExitMsg = {'EXIT', _From, _Reason}, #state{worker=Worker}) ->
+    Worker ! ExitMsg,
     keep_state_and_data;
 
 %% Process sent a reply (or not)
@@ -473,8 +473,8 @@ locked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
 
 %% Someone wants to terminate us, let the worker handle it.
 %% (We will terminate if we receive the EXIT from the worker)
-locked(info, {'EXIT', _From, Reason}, #state{worker=Worker}) ->
-    exit(Worker, Reason),
+locked(info, ExitMsg = {'EXIT', _From, _Reason}, #state{worker=Worker}) ->
+    Worker ! ExitMsg,
     keep_state_and_data;
 
 %% Incoming reply
@@ -633,8 +633,8 @@ deadlocked(info, {'EXIT', Worker, Reason}, #deadstate{worker=Worker}) ->
 
 %% Someone wants to terminate us, let the worker handle it.
 %% (We will terminate if we receive the EXIT from the worker)
-deadlocked(info, {'EXIT', _From, Reason}, #deadstate{worker=Worker}) ->
-    exit(Worker, Reason),
+deadlocked(info, ExitMsg = {'EXIT', _From, _Reason}, #deadstate{worker=Worker}) ->
+    Worker ! ExitMsg,
     keep_state_and_data;
 
 %% Incoming random message
