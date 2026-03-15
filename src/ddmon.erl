@@ -389,8 +389,10 @@ unlocked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone (???) exited 
-unlocked(info, {'EXIT', _Pid, _Reason}, _) ->
+%% Someone wants to terminate us, let the worker handle it.
+%% (We will terminate if we receive the EXIT from the worker)
+unlocked(info, {'EXIT', _From, Reason}, #state{worker=Worker}) ->
+    exit(Worker, Reason),
     keep_state_and_data;
 
 %% Process sent a reply (or not)
@@ -469,8 +471,10 @@ locked(info, {'EXIT', Worker, Reason}, #state{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone (???) died
-locked(info, {'EXIT', _Pid, _Reason}, _) ->
+%% Someone wants to terminate us, let the worker handle it.
+%% (We will terminate if we receive the EXIT from the worker)
+locked(info, {'EXIT', _From, Reason}, #state{worker=Worker}) ->
+    exit(Worker, Reason),
     keep_state_and_data;
 
 %% Incoming reply
@@ -627,8 +631,10 @@ deadlocked(info, {'EXIT', Worker, Reason}, #deadstate{worker=Worker}) ->
     ?DDM_DBG_DDMON("~p: Monitored process ~p exited with reason ~p. Stopping the monitor.", [self(), Worker, Reason]),
     {stop, Reason};
 
-%% Someone (???) exited 
-deadlocked(info, {'EXIT', _Pid, _Reason}, _) ->
+%% Someone wants to terminate us, let the worker handle it.
+%% (We will terminate if we receive the EXIT from the worker)
+deadlocked(info, {'EXIT', _From, Reason}, #deadstate{worker=Worker}) ->
+    exit(Worker, Reason),
     keep_state_and_data;
 
 %% Incoming random message
