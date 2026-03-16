@@ -272,6 +272,21 @@ forward_external_exit(ExitMsg = {'EXIT', _From, Reason}, Worker) ->
             ok
     end.
 
+await_worker_exit(Worker, Reason) ->
+    case is_process_alive(Worker) of
+        true ->
+            exit(Worker, Reason),
+            %% Wait for the worker to exit, but not indefinitely, in case something goes wrong.
+            %% We don't want to be left with a dangling monitor.
+            receive {'EXIT', Worker, _WorkerReason} -> 
+                    ok
+            after 5000 ->
+                ok
+            end;
+        false ->
+            ok
+    end.
+
 %%%======================
 %%% gen_statem Callbacks
 %%%======================
@@ -308,12 +323,12 @@ init({Module, Args, Options}) ->
         E -> E
     end.
 
+%% Make sure the worker process dies before us.
+terminate(Reason, #state{worker=Worker}) ->
+    await_worker_exit(Worker, Reason).
 
-terminate(_Reason, _Data) ->
-    ok.
-
-terminate(_Reason, _State, _Data) ->
-    ok.
+terminate(Reason, _State, #state{worker=Worker}) ->
+    await_worker_exit(Worker, Reason).
 
 callback_mode() ->
     [state_functions, state_enter].
