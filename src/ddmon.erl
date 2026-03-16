@@ -26,8 +26,7 @@
         ]).
 
 %% gen_statem callbacks
--export([init/1, callback_mode/0]).
--export([terminate/3, terminate/2]).
+-export([init/1, callback_mode/0, terminate/3]).
 
 %% States
 -export([unlocked/3, locked/3, deadlocked/3]).
@@ -272,19 +271,62 @@ forward_external_exit(ExitMsg = {'EXIT', _From, Reason}, Worker) ->
             ok
     end.
 
-await_worker_exit(Worker, Reason) ->
+do_teardown(Worker, Reason, State, Data) ->
     case is_process_alive(Worker) of
         true ->
             exit(Worker, Reason),
-            %% Wait for the worker to exit, but not indefinitely, in case something goes wrong.
-            %% We don't want to be left with a dangling monitor.
-            receive {'EXIT', Worker, _WorkerReason} -> 
-                    ok
-            after 5000 ->
-                ok
-            end;
+            await_worker_exit(Worker, State, Data);
         false ->
             ok
+    end.
+
+await_worker_exit(Worker, State, Data) ->
+    receive 
+        {'EXIT', Worker, _WorkerReason} -> 
+            ok;
+        RawMsg ->
+            %% Convert the raw mailbox message into a gen_statem event
+            {EventType, EventContent} =
+                case RawMsg of
+                    {'$gen_cast', CastMsg} -> 
+                        {cast, CastMsg};
+                    {'$gen_call', From, CallMsg} -> 
+                        {{call, From}, CallMsg};
+                    InfoMsg -> 
+                        {info, InfoMsg}
+                end,
+
+            %% Feed it back into ddmon's current state callback
+            %% e.g., ddmon:unlocked(cast, {:sync, ...}, State)
+            Result = ?MODULE:State(EventType, EventContent, Data),
+
+            %% Parse the result to update our loop's state
+            {NextState, NextData} = apply_state_transition(State, Data, Result),
+
+            %% Loop again until the worker is dead
+            await_worker_exit(Worker, NextState, NextData)
+    after 5000 -> %% Failsafe timeout 
+            ok
+    end.
+
+%% Helper to unpack gen_statem return values
+apply_state_transition(OldState, OldData, Result) ->
+    case Result of
+        {next_state, NewState, NewData} -> 
+            {NewState, NewData};
+        {next_state, NewState, NewData, _Actions} -> 
+            {NewState, NewData};
+        {keep_state, NewData} -> 
+            {OldState, NewData};
+        {keep_state, NewData, _Actions} -> 
+            {OldState, NewData};
+        keep_state_and_data -> 
+            {OldState, OldData};
+        {keep_state_and_data, _Actions} -> 
+            {OldState, OldData};
+        _Other -> 
+            %% If it returns stop, we just keep the old state and wait for death
+            {OldState, OldData}
     end.
 
 %%%======================
@@ -323,16 +365,12 @@ init({Module, Args, Options}) ->
         E -> E
     end.
 
-%% Make sure the worker process dies before us.
-terminate(Reason, #state{worker=Worker}) ->
-    await_worker_exit(Worker, Reason).
-
-terminate(Reason, _State, #state{worker=Worker}) ->
-    await_worker_exit(Worker, Reason).
+terminate(Reason, State, Data) ->
+    Worker = state_get_worker(Data),
+    do_teardown(Worker, Reason, State, Data).
 
 callback_mode() ->
     [state_functions, state_enter].
-
 
 unlocked(enter, _, _) ->
     keep_state_and_data;
