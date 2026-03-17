@@ -98,9 +98,11 @@ start(Module, Args) ->
 
 start(Module, Args, Options) ->
     %% We allow running unmonitored systems via options
-    case proplists:get_value(unmonitored, proplists:get_value(ddmon_opts, Options, []), false) of
+    DdmonOpts = proplists:get_value(ddmon_opts, Options, []),
+    case proplists:get_value(unmonitored, DdmonOpts, false) of
         true ->
-            gen_server:start(Module, Args, Options);
+            WorkerType = proplists:get_value(worker_type, DdmonOpts, gen_server),
+            WorkerType:start(Module, Args, Options);
         false ->
             %% Elixir compat
             ChildOptions = proplists:delete(name, Options),
@@ -116,9 +118,11 @@ start(Module, Args, Options) ->
 
 start(ServerName, Module, Args, Options) ->
     %% We allow running unmonitored systems via options
-    case proplists:get_value(unmonitored, proplists:get_value(ddmon_opts, Options, []), false) of
+    DdmonOpts = proplists:get_value(ddmon_opts, Options, []),
+    case proplists:get_value(unmonitored, DdmonOpts, false) of
         true ->
-            gen_server:start(Module, Args, Options);
+            WorkerType = proplists:get_value(worker_type, DdmonOpts, gen_server),
+            WorkerType:start(ServerName, Module, Args, Options);
         false ->
             gen_statem:start(ServerName, ?MODULE, {Module, Args, Options}, Options)
     end.
@@ -129,9 +133,11 @@ start_link(Module, Args) ->
 
 start_link(Module, Args, Options) ->
     %% We allow running unmonitored systems via options
-    case proplists:get_value(unmonitored, proplists:get_value(ddmon_opts, Options, []), false) of
+    DdmonOpts = proplists:get_value(ddmon_opts, Options, []),
+    case proplists:get_value(unmonitored, DdmonOpts, false) of
         true ->
-            gen_server:start_link(Module, Args, Options);
+            WorkerType = proplists:get_value(worker_type, DdmonOpts, gen_server),
+            WorkerType:start_link(Module, Args, Options);
         false ->
             %% Elixir compat
             ChildOptions = proplists:delete(name, Options),
@@ -147,9 +153,11 @@ start_link(Module, Args, Options) ->
 
 start_link(ServerName, Module, Args, Options) ->
     %% We allow running unmonitored systems via options
-    case proplists:get_value(unmonitored, proplists:get_value(ddmon_opts, Options, []), false) of
+    DdmonOpts = proplists:get_value(ddmon_opts, Options, []),
+    case proplists:get_value(unmonitored, DdmonOpts, false) of
         true ->
-            gen_server:start_link(Module, Args, Options);
+            WorkerType = proplists:get_value(worker_type, DdmonOpts, gen_server),
+            WorkerType:start_link(ServerName, Module, Args, Options);
         false ->
             gen_statem:start_link(ServerName, ?MODULE, {Module, Args, Options}, Options)
     end.
