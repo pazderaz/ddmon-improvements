@@ -19,7 +19,7 @@
         ]).
 
 %% Helper API
--export([ self/0, call_report/2, call_report/3
+-export([ public_self/0, call_report/2, call_report/3
         , send_request_report/2, send_request_report/4
         , wait_response_report/2, wait_response_report/3
         , subscribe_deadlocks/1
