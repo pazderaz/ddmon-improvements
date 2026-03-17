@@ -19,7 +19,7 @@
         ]).
 
 %% Helper API
--export([ call_report/2, call_report/3
+-export([ self/0, call_report/2, call_report/3
         , send_request_report/2, send_request_report/4
         , wait_response_report/2, wait_response_report/3
         , subscribe_deadlocks/1
@@ -78,6 +78,16 @@ deadstate_get_deadlock(State) ->
 
 deadstate_is_foreign(State) ->
     State#deadstate.foreign.
+
+%%%======================
+%%% External helpers
+%%%======================
+
+public_self() ->
+    case get(?MON_PID) of
+        undefined -> self();
+        MonPid -> MonPid
+    end.
 
 %%%======================
 %%% API Functions
@@ -297,7 +307,7 @@ await_worker_exit(Worker, State, Data) ->
                 end,
 
             %% Feed it back into ddmon's current state callback
-            %% e.g., ddmon:unlocked(cast, {:sync, ...}, State)
+            %% e.g., ddmon:unlocked(cast, {:sync, ...}, Data)
             Result = ?MODULE:State(EventType, EventContent, Data),
 
             %% Parse the result to update our loop's state
@@ -305,7 +315,8 @@ await_worker_exit(Worker, State, Data) ->
 
             %% Loop again until the worker is dead
             await_worker_exit(Worker, NextState, NextData)
-    after 5000 -> %% Failsafe timeout 
+    after 5000 -> %% Failsafe timeout
+            %% Consider killing the process uncleanly.
             ok
     end.
 
@@ -314,20 +325,33 @@ apply_state_transition(OldState, OldData, Result) ->
     case Result of
         {next_state, NewState, NewData} -> 
             {NewState, NewData};
-        {next_state, NewState, NewData, _Actions} -> 
+        {next_state, NewState, NewData, Actions} ->
+            execute_actions(Actions),
             {NewState, NewData};
         {keep_state, NewData} -> 
             {OldState, NewData};
-        {keep_state, NewData, _Actions} -> 
+        {keep_state, NewData, Actions} -> 
+            execute_actions(Actions),
             {OldState, NewData};
         keep_state_and_data -> 
             {OldState, OldData};
-        {keep_state_and_data, _Actions} -> 
+        {keep_state_and_data, Actions} ->
+            execute_actions(Actions),
             {OldState, OldData};
         _Other -> 
             %% If it returns stop, we just keep the old state and wait for death
             {OldState, OldData}
     end.
+
+%% Execute crucial actions (mainly replies so clients don't hang)
+execute_actions(Actions) when is_list(Actions) ->
+    lists:foreach(fun
+        ({reply, From, Msg}) -> gen_statem:reply(From, Msg);
+        (_) -> ok
+    end, Actions);
+
+execute_actions(Action) -> 
+    execute_actions([Action]).
 
 %%%======================
 %%% gen_statem Callbacks

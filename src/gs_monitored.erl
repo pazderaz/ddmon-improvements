@@ -53,7 +53,9 @@ handle_info(Info, State) ->
     Module = get(?CALLBACK_MOD),
     case erlang:function_exported(Module, handle_info, 2) of
         true -> Module:handle_info(Info, State);
-        false -> {noreply, State}
+        false ->
+            logger:warning("~p: unexpected message: ~p", [?CALLBACK_MOD, Info]), 
+            {noreply, State}
     end.
 
 
