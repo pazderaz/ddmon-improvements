@@ -392,7 +392,7 @@ init({Module, Args, Options}) ->
             mon_reg:set_mon(self(), self()),
             
             put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
-            ?DDM_DBG_DDMON("Started monitor ~p for process ~p.", [self(), Pid]),
+            logger:info("[DDMON] Started monitor ~p for process ~p (~p).", [self(), Pid, Module], #{subsystem => ddmon}),
             {ok, unlocked, State};
         E -> E
     end.

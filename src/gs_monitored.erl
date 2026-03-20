@@ -54,7 +54,7 @@ handle_info(Info, State) ->
     case erlang:function_exported(Module, handle_info, 2) of
         true -> Module:handle_info(Info, State);
         false ->
-            logger:warning("~p: unexpected message: ~p", [?CALLBACK_MOD, Info]), 
+            logger:warning("~p: unexpected message: ~p", [?CALLBACK_MOD, Info], #{subsystem => ddmon}), 
             {noreply, State}
     end.
 
