@@ -8,53 +8,57 @@ defmodule MicrochipFactory do
   @doc"""
   Simple example with two services
   """
-  def start_two(monitored \\ false) do
+  def start_two(monitored \\ false, verbose \\ true) do
     # Starting namespace registry
-    Registry.start_link(keys: :unique, name: :factory)
+    Registry.start_link(keys: :unique, name: :small_factory)
 
     # Starting producers
-    {:ok, _prod1} = MicrochipFactory.Producer.start_link({:via, Registry, {:factory, :prod1}}, 3, [])
-    {:ok, _prod2} = MicrochipFactory.Producer.start_link({:via, Registry, {:factory, :prod2}}, 5, [])
+    {:ok, _prod1} = MicrochipFactory.Producer.start_link({:via, Registry, {:small_factory, :prod1}}, 3, [])
+    {:ok, _prod2} = MicrochipFactory.Producer.start_link({:via, Registry, {:small_factory, :prod2}}, 5, [])
 
     # Starting inspectors
     {:ok, _insp1} = MicrochipFactory.Inspector.start_link(
-      {:via, Registry, {:factory, :insp1}},
-      {:via, Registry, {:factory, :prod1}}
+      {:via, Registry, {:small_factory, :insp1}},
+      {:via, Registry, {:small_factory, :prod1}}
     )
     {:ok, _insp2} = MicrochipFactory.Inspector.start_link(
-      {:via, Registry, {:factory, :insp2}},
-      {:via, Registry, {:factory, :prod2}}
+      {:via, Registry, {:small_factory, :insp2}},
+      {:via, Registry, {:small_factory, :prod2}}
     )
 
     # Initial calls
-    calls = [{{:via, Registry, {:factory, :prod1}}, {:via, Registry, {:factory, :insp2}}},
-             {{:via, Registry, {:factory, :prod2}}, {:via, Registry, {:factory, :insp1}}}
+    calls = [{{:via, Registry, {:small_factory, :prod1}}, {:via, Registry, {:small_factory, :insp2}}},
+             {{:via, Registry, {:small_factory, :prod2}}, {:via, Registry, {:small_factory, :insp1}}}
             ]
-    do_calls(calls, monitored, 1000)
+    result = do_calls(calls, monitored, 1000)
+
+    if verbose, do: print_result(result, :small_factory)
+
+    result
   end
 
 
   @doc """
   Complex example with many producers and a few inspectors
   """
-  def start_many(monitored \\ false) do
+  def start_many(monitored \\ false, verbose \\ true) do
     # How long a single cascade of calls should be
     session_size = 30
     # At what point sessions should clash with others
     session_cut = 23
 
     # Starting namespace registry
-    Registry.start_link(keys: :unique, name: :factory)
+    Registry.start_link(keys: :unique, name: :large_factory)
 
     # Starting producers in three sessions
     _prods = for idx <- 0..session_size, sess <- [:a, :b, :c], into: %{} do
-      name = {:via, Registry, {:factory, {:prod, sess, idx}}}
+      name = {:via, Registry, {:large_factory, {:prod, sess, idx}}}
 
       # All producers (except the last one) call the next producer in order
       components = if idx == session_size do
         []
       else
-        [{:via, Registry, {:factory, {:prod, sess, idx + 1}}}]
+        [{:via, Registry, {:large_factory, {:prod, sess, idx + 1}}}]
       end
 
       prod = MicrochipFactory.Producer.start_link(name, 21, components)
@@ -63,7 +67,7 @@ defmodule MicrochipFactory do
 
     # Starting inspectors in three sessions
     _insps = for sess <- [:a, :b, :c] do
-      name = {:via, Registry, {:factory, {:insp, sess}}}
+      name = {:via, Registry, {:large_factory, {:insp, sess}}}
 
       # Sample the actual clash point
       cut_target = :rand.uniform(session_size - session_cut + 1) + session_cut - 1
@@ -76,30 +80,22 @@ defmodule MicrochipFactory do
                   end
 
       # Producer to query for metadata
-      prod_ref = {:via, Registry, {:factory, {:prod, next_sess, cut_target}}}
+      prod_ref = {:via, Registry, {:large_factory, {:prod, next_sess, cut_target}}}
 
       MicrochipFactory.Inspector.start_link(name, prod_ref)
     end
 
     # All producers in each session share the inspector
     calls = for sess <- [:a, :b, :c] do
-      {{:via, Registry, {:factory, {:prod, sess, 0}}},
-       {:via, Registry, {:factory, {:insp, sess}}}
+      {{:via, Registry, {:large_factory, {:prod, sess, 0}}},
+       {:via, Registry, {:large_factory, {:insp, sess}}}
       }
     end
-    do_calls(calls, monitored, 4000)
-  end
+    result = do_calls(calls, monitored, 4000)
 
-  def start_test do
-    # 2. Start the Receiver (Unmonitored)
-    {:ok, _receiver_pid} = Receiver.start_link([])
+    if verbose, do: print_result(result, :large_factory)
 
-    # 3. Start the Sender (Monitored)
-    {:ok, _sender_pid} = Sender.start_link([])
-
-    # 5. Trigger the cross-process call
-    Sender.trigger_call()
-    :timer.sleep(5000)
+    result
   end
 
   ### ==========================================================================
@@ -129,8 +125,7 @@ defmodule MicrochipFactory do
     # - If any call resulted in a deadlock, report a deadlock
     # - If any call resulted in a timeout, report a timeout
     # - Otherwise, report results from all calls
-    result =
-      case Enum.find(resps, fn
+    case Enum.find(resps, fn
             {:"$ddmon_deadlock_spread", _} -> true
             _ -> false
           end)
@@ -145,17 +140,14 @@ defmodule MicrochipFactory do
           {:success, resps}
         end
     end
-
-    # Make it pretty
-    print_result(result)
   end
 
-  defp print_result(result) do
+  defp print_result(result, factory_name) do
     case result do
       {:deadlock, dl} ->
         IO.puts("\e[31;1mDeadlock\e[0m:")
         dl = for p <- dl do
-          case Registry.keys(:factory, p) do
+          case Registry.keys(factory_name, p) do
             [] -> p
             [name|_] -> name
           end

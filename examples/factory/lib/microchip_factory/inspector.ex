@@ -1,4 +1,7 @@
 defmodule MicrochipFactory.Inspector do
+
+  require Logger
+
   use GenServer
   alias :ddmon, as: GenServer
 
@@ -35,7 +38,7 @@ defmodule MicrochipFactory.Inspector do
   end
 
   defp log(state, str) do
-    IO.puts(format(state.self) <> ":  \t" <> str)
+    Logger.debug(format(state.self) <> ":  \t" <> str)
   end
 
   ### Interface

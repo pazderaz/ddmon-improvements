@@ -12,9 +12,16 @@ defmodule DDMon.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       erlc_paths: ["src"],
+      elixirc_paths: elixirc_paths(Mix.env()),
       erlc_include_path: "include",
       erlc_options: erlc_options(),
-      deps: []
+      deps: deps()
+    ]
+  end
+
+  def application do
+    [
+      extra_applications: [:logger],
     ]
   end
 
@@ -26,9 +33,12 @@ defmodule DDMon.MixProject do
     ] |> Enum.reject(&is_nil/1)
   end
 
-  def application do
+  defp elixirc_paths(:test), do: ["lib", "examples/junction/lib", "examples/factory/lib"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp deps do
     [
-      extra_applications: [:logger],
+      {:gen_state_machine, "~> 3.0", only: :test},
     ]
   end
 end
