@@ -351,7 +351,8 @@ apply_state_transition(OldState, OldData, Result) ->
             {OldState, OldData}
     end.
 
-%% Execute crucial actions (mainly replies so clients don't hang)
+%% Execute actions (replies so clients don't hang)
+%% TODO: support more action types if needed
 execute_actions(Actions) when is_list(Actions) ->
     lists:foreach(fun
         ({reply, From, Msg}) -> gen_statem:reply(From, Msg);
