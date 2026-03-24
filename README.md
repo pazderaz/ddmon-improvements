@@ -1,10 +1,14 @@
 # DDMon
 
-**DDMon**, a monitoring tool for distributed black-box .deadlock
-detection in Erlang and Elixir systems based on generic servers (`gen_server`).
+**DDMon**, a monitoring tool for distributed black-box deadlock
+detection in Erlang and Elixir systems based on generic servers (`gen_server`) and
+generic state machines (`gen_statem`).
+
 We developed the tool as a drop-in replacement for generic servers with minimal
-user intervention required. DDMon is the implementation and companion artifact
-of our work accepted at OOPSLA 2025: "Correct Black-Box Monitors for Distributed
+user intervention required.
+
+DDMon is originally a companion artifact
+of the work accepted at OOPSLA 2025: "Correct Black-Box Monitors for Distributed
 Deadlock Detection: Formalisation and Implementation"
 
 ## Installation
@@ -23,12 +27,11 @@ end
 ## Using DDMon to monitor a `gen_server`-based application
 
 DDMon can monitor applications consisting of processes (written in Erlang or
-Elixir) based on the generic server (`gen_server`) behaviour. Intuitively, DDMon
-acts as a drop-in replacement for the `gen_server` module of the OTP standard
+Elixir) based on the generic server (`gen_server`) behaviour. DDMon
+acts as a drop-in replacement for the `gen_server` and `gen_statem` modules of the OTP standard
 library. At this stage, DDMon supports only the most commonly used features of
 generic servers, i.e. the `call` and `cast` callbacks. Timeouts, deferred
-responses (`no_reply`) and pooled calls through `reqids` are not covered by the
-prototype yet.
+responses (`no_reply`) and pooled calls through `reqids` are not yet convered.
 
 To instrument an Erlang or Elixir program with DDMon monitors, you'll need to
 follow these instructions, which depend on the language used to write each
@@ -41,27 +44,37 @@ follow these instructions, which depend on the language used to write each
   alias :ddmon, as: GenServer
   ```
 
-- In the case of `gen_server`s written in Erlang, you will need to
-  find-and-replace all references to the `gen_server` module with `ddmon`. (This
+- For `gen_statem`, you apply the alias in the same way. However, you must
+  additionally specify the type of the worker as part of the `start_link` opts:
+
+  ```elixir
+  alias :ddmon, as: GenStateMachine
+
+  ...
+
+  def start_link(...) do
+    opts = [
+      ddmon_opts: [
+        worker_type: :gen_statem
+      ]
+    ]
+
+    GenStateMachine.start_link(__MODULE__, [], opts)
+  end
+  ```
+
+- In the case of modules written in Erlang, you will need to find-and-replace
+  all references to the `gen_server`/`gen_statem` module with `ddmon`. (This
   is necessary because Erlang lacks the `alias` directive provided by Elixir.)
-
-### Application Architecture & Monitoring Registry
-
-The `ddmon` dependency operates as a supervised **OTP Application** rather than just a passive code library. 
-
-When your app starts, `ddmon` spins up its own supervision tree alongside your main application. 
-
-- **The `mon_reg` Registry:** At the root of this tree, the `ddmon` application starts and supervises a centralized registry process called `mon_reg`.
-- **Monitor Tracking:** Every time a worker process is wrapped by a `ddmon` proxy, that proxy registers itself with `mon_reg`. The registry acts as the source of truth, maintaining active references to all running `ddmon` monitors across the node to coordinate distributed deadlock detection.
 
 ## ⚠️ Important Limitation: `sys` Module Transparency
 DDMon wraps your GenServers in a proxy process to detect deadlocks. Because of how the Erlang VM handles system messages, the proxy intercepts all calls to the `:sys` module.
 
-If you call `:sys.get_state/1`, `:sys.get_status/1`, or `:sys.replace_state/2` on a monitored process, you will interact with the monitor's state, not the underlying worker process.
+If you call `:sys.get_state/1`, `:sys.get_status/1`, or `:sys.replace_state/2` on a monitored process, you will interact with the monitor, not the underlying worker process.
 
 ### How to handle this:
-- In Production Logic: Do not use `:sys` for synchronization. Implement a custom synchronous `GenServer.call(pid, :sync)` in your worker, which DDMon will correctly forward.
-- In Tests: If you need to flush a worker's mailbox or check its state, extract the raw worker PID first using `GenServer.call(pid, :"$get_child")` and pass that PID to the `:sys` module.
+- In Production Logic: Do not use `:sys` for synchronization. Implement a custom synchronous `GenServer.call(pid, :sync)` in your worker, which DDMon will correctly forward to the process.
+- In Tests: If you need to flush a worker's mailbox or check its state, extract the raw worker PID first using `GenServer.call(pid, :"$get_child")` and pass that PID to the `:sys` module. The `DDMon.Test` module provides a helper function for this purpose
 
 ## Configuration
 
@@ -87,9 +100,13 @@ config :ddmon,
 This repository is structured to separate the core, distributable library from the academic and evaluation models used to test it. 
 We also provide an example scenario showcasing the functionality of DDMon.
 
-* `src/` & `lib/` – The core DDMon library source code.
-* `example-system/` –  An example `gen_server`-based Elixir application which shows DDMon in a slightly more realistic local setup.
-* `oopsla` - The OOPSLA'25 artifact. For more details see the `oopsla/README.md`.
+* `src/`, `lib/` & `include/` - The core DDMon library source code.
+* `test/` - Unit tests validating the basic deadlock monitoring functionality, based on scenarios from `examples/`.
+* `examples/` - Example scenarios & simulations in Elixir which showcase the application of DDMon.
+  * `factory/` - A `gen_server`-based simulation of a Microchip Factory.
+  * `junction/` - A `gen_statem`-based simulation of a 4-way junction.
+  * `showcase/` - Other scenarios showcasing the use of DDMon.
+* `oopsla/` - The OOPSLA'25 artifact. For more details see the `oopsla/README.md`.
 
 ## Prerequisites
 
