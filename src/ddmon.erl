@@ -392,8 +392,10 @@ init({Module, Args, Options}) ->
             mon_reg:ensure_started(),
             mon_reg:set_mon(self(), self()),
             
-            put(?PROBE_DELAY, proplists:get_value(probe_delay, DlsOpts, -1)),
-            logger:info("[DDMON] Started monitor ~p for process ~p (~p).", [self(), Pid, Module], #{subsystem => ddmon}),
+            ProbeDelay = proplists:get_value(probe_delay, DlsOpts, ?DEFAULT_PROBE_DELAY),
+            put(?PROBE_DELAY, ProbeDelay),
+
+            logger:info("[DDMON] Started monitor ~p for process ~p (~p). Probe delay: ~p", [self(), Pid, Module, ProbeDelay], #{subsystem => ddmon}),
             {ok, unlocked, State};
         E -> E
     end.

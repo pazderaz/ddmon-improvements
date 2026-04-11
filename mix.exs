@@ -3,6 +3,7 @@ defmodule DDMon.MixProject do
 
   @ddm_debug Application.compile_env(:ddmon, :ddm_debug, "0")
   @ddm_report Application.compile_env(:ddmon, :ddm_report, false)
+  @default_probe_delay Application.compile_env(:ddmon, :default_probe_delay, -1)
 
   def project do
     [
@@ -29,7 +30,8 @@ defmodule DDMon.MixProject do
     [
       :debug_info,
       if(@ddm_debug == "1", do: {:d, :DDM_DEBUG}),
-      if(@ddm_report == true, do: {:d, :DDM_REPORT})
+      if(@ddm_report == true, do: {:d, :DDM_REPORT}),
+      {:d, :DEFAULT_PROBE_DELAY, @default_probe_delay}
     ] |> Enum.reject(&is_nil/1)
   end
 
