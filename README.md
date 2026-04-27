@@ -93,6 +93,12 @@ config :ddmon,
 
   # Enables logging of deadlocks as warnings.
   ddm_report: true
+
+  # Specify the default delay (ms) for passing the probes between monitors.
+  # Increasing this value may result in reduced monitoring overhead, but
+  # slower deadlock detection.
+  # The default value is -1 for immediate delivery.
+  default_probe_delay: 1000
 ```
 
 ## Repository layout

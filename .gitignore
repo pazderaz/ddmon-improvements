@@ -27,3 +27,6 @@ asdf/
 # Other trash and outputs
 *.csv
 # *.pdf
+
+# Playground
+examples/playground/

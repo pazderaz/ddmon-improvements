@@ -174,7 +174,16 @@ call(Server, Request, Timeout) ->
         undefined ->
             gen_server:call(Server, Request, Timeout);
         Mon ->
-            gen_statem:call(Mon, {Request, Server}, Timeout)
+            %% Intercept the proxy's response
+            case gen_statem:call(Mon, {Request, Server}, Timeout) of
+                {'$ddmon_target_died', Reason} ->
+                    %% The target died. Recreate standard OTP crash behavior!
+                    %% This mimics the exact exception gen_server throws.
+                    exit({Reason, {?MODULE, call, [Server, Request, Timeout]}});
+                NormalReply ->
+                    %% The process replied normally
+                    NormalReply
+            end
     end.
 
 
@@ -519,6 +528,13 @@ unlocked(info, Msg, State = #state{waitees = Waitees0, worker = Worker}) ->
             {keep_state,
              State#state{waitees = Waitees1},
              {reply, From, Reply}
+            };
+
+        {{error, {Reason, _ServerRef}}, #{from := From}, Waitees1} ->
+            %% Forward the exact error tuple back to the caller.
+            {keep_state,
+             State#state{waitees = Waitees1},
+             {reply, From, {'$ddmon_target_died', Reason}}
             }
     end.
 
@@ -622,6 +638,14 @@ locked(info, Msg, State = #state{ worker = Worker
             {next_state, unlocked,
              State,
              {reply, {Worker, PTag}, Reply}
+            };
+
+        {error, {Reason, _ServerRef}} ->
+            %% Pass the exact error tuple back to the waiting worker and unlock.
+            ?DDM_DBG_STATE("(locked -> unlocked) ~p: Target died, passing error through.", [Worker]),
+            {next_state, unlocked,
+             State,
+             {reply, {Worker, PTag}, {'$ddmon_target_died', Reason}}
             }
     end;
 
@@ -752,5 +776,8 @@ deadlocked(info, Msg, #deadstate{worker = Worker, req_id = ReqId}) ->
             keep_state_and_data;
         {reply, Reply} ->
             %% A reply after deadlock?!
-            error({'REPLY_AFTER_DEADLOCK', Reply})
+            error({'REPLY_AFTER_DEADLOCK', Reply});
+        {error, {_Reason, _ServerRef}} ->
+            %% Target died while we were deadlocked.
+            keep_state_and_data
     end.
