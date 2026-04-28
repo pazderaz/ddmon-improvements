@@ -19,6 +19,7 @@ start_link(Module, Args0, Options) ->
 init([{monitor, Monitor}, {module, Module}|Args]) ->
     put(?MON_PID, Monitor),
     put(?CALLBACK_MOD, Module),
+    put(?WORKER_MODULE, gen_server),
 
     %% --- ELIXIR COMPATIBILITY ---
     %% Elixir testing tools (like Mox and Ecto.Adapters.SQL.Sandbox) rely on a hidden

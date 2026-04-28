@@ -174,15 +174,23 @@ call(Server, Request, Timeout) ->
         undefined ->
             gen_server:call(Server, Request, Timeout);
         Mon ->
+            ExpectedModule = case get(?WORKER_MODULE) of
+                undefined -> gen_server;
+                ModType   -> ModType
+            end,
+
             %% Intercept the proxy's response
-            case gen_statem:call(Mon, {Request, Server}, Timeout) of
+            try gen_statem:call(Mon, {Request, Server}, Timeout) of
                 {'$ddmon_target_died', Reason} ->
-                    %% The target died. Recreate standard OTP crash behavior!
-                    %% This mimics the exact exception gen_server throws.
-                    exit({Reason, {?MODULE, call, [Server, Request, Timeout]}});
+                    %% Recreate exact OTP crash behavior using the expected module
+                    exit({Reason, {ExpectedModule, call, [Server, Request, Timeout]}});
                 NormalReply ->
-                    %% The process replied normally
                     NormalReply
+            catch
+                % In case of a timeout, replicate it transparently using the worker module
+                exit:{timeout, {gen_statem, call, _}} ->
+                    %% Rewrite timeout exception to match the caller's domain
+                    exit({timeout, {ExpectedModule, call, [Server, Request, Timeout]}})
             end
     end.
 

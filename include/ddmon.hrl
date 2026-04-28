@@ -28,6 +28,7 @@
 -endif.
 
 -define(MON_PID, '$gen_monitored_pid').
+-define(WORKER_MODULE, '$gen_worker_module').
 -define(CALLBACK_MOD, '$gen_monitored_mod').
 -define(PROBE, '$gen_monitored_probe').
 -define(DEADLOCK, '$ddmon_deadlock_spread').
